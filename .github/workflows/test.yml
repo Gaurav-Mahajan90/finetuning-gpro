@@ -1,0 +1,76 @@
+name: Manual Pretrained Model Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      continue-from:
+        description: 'Path to existing output file to continue from'
+        required: true
+        default: 'output.xlsx'
+      dataset-file:
+        description: 'Path to the dataset Excel file'
+        required: true
+        default: 'input.xlsx'
+      retry-only:
+        description: 'Only retry failed requests from the output file'
+        required: false
+        default: 'false'
+      api-key:
+        description: 'API key for the model API'
+        required: true
+      batch-size:
+        description: 'Batch size for requests'
+        required: true
+      web-url:
+        description: 'Base URL for the model API'
+        required: true
+      model-name:
+        description: 'Model name for the API request'
+        required: true
+      concurrent-requests:
+        description: 'Number of concurrent requests'
+        required: false
+        default: '250'
+      max-retries:
+        description: 'Maximum number of retry attempts for failed requests'
+        required: false
+        default: '10'
+      retry-delay:
+        description: 'Delay between retries in seconds'
+        required: false
+        default: '0.5'
+
+jobs:
+  run-pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install dependencies
+        run: poetry install
+      - name: Install dev dependencies
+        run: poetry install --with dev
+      - name: Run pytest for pretrained model
+        run: |
+          poetry run pytest tests/test_send_req_to_pretrained_model.py \
+            --continue-from "${{ github.event.inputs.continue-from }}" \
+            --dataset-file "${{ github.event.inputs.dataset-file }}" \
+            --api-key "${{ github.event.inputs.api-key }}" \
+            --batch-size "${{ github.event.inputs.batch-size }}" \
+            --web-url "${{ github.event.inputs.web-url }}" \
+            --model-name "${{ github.event.inputs.model-name }}" \
+            --concurrent-requests "${{ github.event.inputs.concurrent-requests }}" \
+            --max-retries "${{ github.event.inputs.max-retries }}" \
+            --retry-delay "${{ github.event.inputs.retry-delay }}" \
+            ${{ github.event.inputs.retry-only == 'true' && '--retry-only' || '' }}
+      - name: Upload output Excel
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-excel
+          path: ${{ github.event.inputs.continue-from }}
